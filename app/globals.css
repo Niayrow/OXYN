@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* On force le thème sombre par défaut pour l'esthétique OXYN */
+  --background: #020617;
+  --foreground: #ffffff;
+
+  /* Couleurs personnalisées OXYN */
+  --oxyn-cyan: #22d3ee;
+  --oxyn-blue: #3b82f6;
+  --oxyn-slate: #0f172a;
 }
 
 @theme inline {
+  /* Variables de couleurs */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-cyan-oxyn: var(--oxyn-cyan);
+  --color-blue-oxyn: var(--oxyn-blue);
+  --color-slate-oxyn: var(--oxyn-slate);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Fontes */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular;
+
+  /* Animation du dégradé de texte (Hero) */
+  --animation-gradient-x: gradient-x 5s ease infinite;
+
+  @keyframes gradient-x {
+
+    0%,
+    100% {
+      background-size: 200% 200%;
+      background-position: left center;
+    }
+
+    50% {
+      background-size: 200% 200%;
+      background-position: right center;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Base styles */
+@layer base {
+  * {
+    @apply border-white/10;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    /* Lissage des polices pour un look plus "Apple" */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Utilitaires pour les effets de lueur (Glow) */
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 15px rgba(34, 211, 238, 0.5);
+  }
+
+  .bg-glass {
+    @apply bg-slate-900/40 backdrop-blur-2xl border border-white/10;
+  }
 }

@@ -269,9 +269,9 @@ function ResultsView({ calories, mb, weight, height, age, gender, activity, onBa
     const totalWeightLoss = parseFloat((12 * weeklyLossKg).toFixed(1));
 
     const strategies = [
-        { key: 0.9, label: "OXYN SOFT", desc: "Doux & durable", pct: "-10%", color: "cyan" },
+        { key: 0.9, label: "OXYN SOFT", desc: "Doux & durable", pct: "-10%", color: "cyan", recommended: false },
         { key: 0.8, label: "OXYN OPTIMAL", desc: "Recommandé", pct: "-20%", color: "cyan", recommended: true },
-        { key: 0.7, label: "OXYN AGGRESSIVE", desc: "Court terme uniquement", pct: "-30%", color: "amber" },
+        { key: 0.7, label: "OXYN AGGRESSIVE", desc: "Court terme uniquement", pct: "-30%", color: "amber", recommended: false },
     ] as const;
 
     return (

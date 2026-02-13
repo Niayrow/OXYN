@@ -4,11 +4,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Activity, TrendingDown, Zap, Target, Calendar, ChevronRight,
     Scale, Smartphone, Heart, Footprints, Droplets, Trophy, ArrowUpRight,
-    ShieldCheck, X, Loader2, Settings2, Check
+    ShieldCheck, X, Loader2, Settings2, Check, ArrowRight
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, XAxis } from 'recharts';
+import Link from 'next/link';
+import AnimatedNumber from '@/components/AnimatedNumber';
 
-// --- DONNÉES SIMULÉES ---
+// --- TYPES ---
+interface UserData {
+    gender: 'homme' | 'femme';
+    weight: number;
+    height: number;
+    age: number;
+    activity: number;
+    lastResult?: {
+        calories: number;
+        date: string;
+    };
+}
+
+// --- DONNÉES SIMULÉES (Fallback) ---
 const weightData = [
     { day: 'L', weight: 80.5 }, { day: 'M', weight: 80.2 },
     { day: 'M', weight: 79.9 }, { day: 'J', weight: 80.1 },
@@ -21,6 +36,8 @@ export default function DashboardPage() {
     const [syncTarget, setSyncTarget] = useState<null | 'apple' | 'samsung'>(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
+    const [userData, setUserData] = useState<UserData | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     // État de visibilité des composants (Modularité)
     const [visibleWidgets, setVisibleWidgets] = useState({
@@ -31,6 +48,21 @@ export default function DashboardPage() {
         activite: true,
         eau: true
     });
+
+    // Chargement des données OXYN Memory
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('oxyn_tdee_data');
+                if (saved) {
+                    setUserData(JSON.parse(saved));
+                }
+            } catch (e) {
+                console.error("Failed to load OXYN data", e);
+            }
+            setIsLoading(false);
+        }
+    }, []);
 
     // Simulation de synchronisation
     const handleSync = () => {
@@ -45,6 +77,20 @@ export default function DashboardPage() {
         setVisibleWidgets(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    // Calculs dérivés des données
+    const hasData = userData && userData.lastResult;
+    const calories = hasData ? userData.lastResult!.calories : 0;
+
+    // Macros (30% Prot, 25% Lip, 45% Glu)
+    const macros = hasData ? {
+        prot: Math.round((calories * 0.30) / 4),
+        lip: Math.round((calories * 0.25) / 9),
+        glu: Math.round((calories * 0.45) / 4)
+    } : { prot: 0, lip: 0, glu: 0 };
+
+    // Hydratation (Poids * 35ml)
+    const waterTarget = userData ? (userData.weight * 0.035).toFixed(1) : "0";
+
     return (
         <main className="min-h-screen pt-28 pb-40 px-4 md:px-6 bg-[#020617] text-white overflow-x-hidden">
             <div className="max-w-6xl mx-auto">
@@ -55,7 +101,9 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-3 mb-4">
                             <div className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400">Hub Biométrique Actif</span>
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400">
+                                    {hasData ? "Suivi OXYN Actif" : "En attente de données"}
+                                </span>
                             </div>
                         </div>
                         <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">
@@ -72,113 +120,121 @@ export default function DashboardPage() {
                     </button>
                 </header>
 
-                {/* --- CONFIGURATION PANEL (MODULARITÉ) --- */}
-                <AnimatePresence>
-                    {showConfig && (
-                        <motion.section
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="mb-10 p-6 bg-slate-900/50 border border-white/10 rounded-[2.5rem] overflow-hidden"
-                        >
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 px-2">Affichage des modules</p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                                {Object.keys(visibleWidgets).map((key) => (
-                                    <button
-                                        key={key}
-                                        onClick={() => toggleWidget(key as any)}
-                                        className={`p-3 rounded-xl border text-[9px] font-black uppercase italic tracking-tighter transition-all flex items-center justify-between ${visibleWidgets[key as keyof typeof visibleWidgets] ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400' : 'bg-slate-950 border-white/5 text-slate-600'}`}
-                                    >
-                                        {key} {visibleWidgets[key as keyof typeof visibleWidgets] ? <Check size={12} /> : <X size={12} />}
-                                    </button>
-                                ))}
-                            </div>
-                        </motion.section>
-                    )}
-                </AnimatePresence>
+                {!hasData && !isLoading ? (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-dashed border-white/20 text-center mb-10">
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4">
+                            <Target size={32} className="text-slate-500" />
+                        </div>
+                        <h3 className="text-xl font-black italic uppercase text-white mb-2">Aucune donnée détectée</h3>
+                        <p className="text-slate-400 text-sm mb-6 max-w-md mx-auto">Veuillez effectuer votre première analyse TDEE pour débloquer votre tableau de bord intelligent.</p>
+                        <Link href="/tdee" className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-500 text-slate-950 rounded-xl font-black uppercase italic tracking-widest text-xs hover:bg-cyan-400 transition-colors">
+                            Lancer le calculateur <ArrowRight size={16} />
+                        </Link>
+                    </motion.div>
+                ) : (
+                    <>
+                        {/* --- CONFIGURATION PANEL (MODULARITÉ) --- */}
+                        <AnimatePresence>
+                            {showConfig && (
+                                <motion.section
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="mb-10 p-6 bg-slate-900/50 border border-white/10 rounded-[2.5rem] overflow-hidden"
+                                >
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4 px-2">Affichage des modules</p>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                                        {Object.keys(visibleWidgets).map((key) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => toggleWidget(key as any)}
+                                                className={`p-3 rounded-xl border text-[9px] font-black uppercase italic tracking-tighter transition-all flex items-center justify-between ${visibleWidgets[key as keyof typeof visibleWidgets] ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400' : 'bg-slate-950 border-white/5 text-slate-600'}`}
+                                            >
+                                                {key} {visibleWidgets[key as keyof typeof visibleWidgets] ? <Check size={12} /> : <X size={12} />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </motion.section>
+                            )}
+                        </AnimatePresence>
 
-                {/* --- SYNC CENTER --- */}
-                <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-                    <SyncButton brand="Apple Santé" icon={<Heart fill="currentColor" size={22} />} gradient="from-pink-500 to-red-500" textColor="text-pink-100" onClick={() => setSyncTarget('apple')} />
-                    <SyncButton brand="Samsung Health" icon={<Activity fill="currentColor" size={22} />} gradient="from-[#00B4D8] to-[#0077B6]" textColor="text-cyan-100" onClick={() => setSyncTarget('samsung')} />
-                </section>
+                        {/* --- GRID BENTO MODULAIRE --- */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
-                {/* --- GRID BENTO MODULAIRE --- */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-
-                    {/* Module Progression */}
-                    <AnimatePresence>
-                        {visibleWidgets.progression && (
-                            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="md:col-span-4 p-8 rounded-[2.5rem] bg-slate-900/40 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-8">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-16 h-16 rounded-2xl bg-cyan-500 flex items-center justify-center text-slate-950 shadow-[0_0_30px_rgba(6,182,212,0.4)]"><Trophy size={32} fill="currentColor" /></div>
-                                    <div>
-                                        <h3 className="text-xl font-black italic uppercase tracking-tight mb-2">Statut du Protocole</h3>
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-3 w-48 md:w-64 bg-slate-800 rounded-full overflow-hidden"><div className="h-full w-[65%] bg-cyan-500" /></div>
-                                            <span className="text-xl font-black italic text-cyan-400">65%</span>
+                            {/* Module Calories (Mis en avant) */}
+                            {visibleWidgets.calories && (
+                                <motion.div className="md:col-span-2 p-8 rounded-[2.5rem] bg-cyan-500 text-slate-950 flex flex-col justify-between group overflow-hidden relative">
+                                    <Zap size={32} className="relative z-10 text-slate-950" />
+                                    <div className="relative z-10 mt-6 md:mt-0">
+                                        <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-2">Objectif Quotidien</div>
+                                        <div className="text-6xl font-black italic tracking-tighter leading-none flex items-baseline">
+                                            <AnimatedNumber value={calories} />
+                                            <span className="text-xl ml-2 opacity-50 not-italic">kcal</span>
                                         </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                    <Activity size={180} className="absolute -right-10 -bottom-10 opacity-10 text-black rotate-12" />
+                                </motion.div>
+                            )}
 
-                    {/* Module Graphique */}
-                    {visibleWidgets.graphique && (
-                        <BentoCard colSpan={2} title="Trajectoire de Poids" icon={<TrendingDown size={18} />}>
-                            <div className="h-48 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={weightData}>
-                                        <defs><linearGradient id="wG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22d3ee" stopOpacity={0.2} /><stop offset="95%" stopColor="#22d3ee" stopOpacity={0} /></linearGradient></defs>
-                                        <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} hide />
-                                        <Area type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={3} fill="url(#wG)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </BentoCard>
-                    )}
+                            {/* Module Macros */}
+                            {visibleWidgets.macros && (
+                                <BentoCard colSpan={2} title="Cibles & Macros" icon={<Target size={18} />}>
+                                    <div className="space-y-5 mt-2">
+                                        <MacroBar label="Protéines" value={`${macros.prot}g`} percentage="30%" color="bg-blue-500" />
+                                        <MacroBar label="Glucides" value={`${macros.glu}g`} percentage="45%" color="bg-cyan-500" />
+                                        <MacroBar label="Lipides" value={`${macros.lip}g`} percentage="25%" color="bg-indigo-500" />
+                                    </div>
+                                </BentoCard>
+                            )}
 
-                    {/* Module Calories */}
-                    {visibleWidgets.calories && (
-                        <motion.div className="p-8 rounded-[2.5rem] bg-cyan-500 text-slate-950 flex flex-col justify-between group overflow-hidden relative">
-                            <Zap size={32} className="relative z-10" />
-                            <div className="relative z-10">
-                                <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">TDEE MAINTENANCE</div>
-                                <div className="text-5xl font-black italic tracking-tighter leading-none">2,450</div>
-                            </div>
-                            <Activity size={120} className="absolute -right-8 -bottom-8 opacity-20" />
-                        </motion.div>
-                    )}
+                            {/* Module Activité/Métabolisme */}
+                            {visibleWidgets.activite && (
+                                <BentoCard title="Métabolisme" icon={<Activity size={18} />}>
+                                    <div className="text-4xl font-black italic tracking-tighter">
+                                        x{userData?.activity}
+                                    </div>
+                                    <p className="text-[10px] uppercase text-slate-500 font-bold mt-1 tracking-wider">Facteur d&apos;activité</p>
+                                    <div className="mt-4 pt-4 border-t border-white/5">
+                                        <div className="flex justify-between items-baseline">
+                                            <span className="text-[9px] text-slate-500 uppercase font-bold">MB Est.</span>
+                                            <span className="text-lg font-black italic text-cyan-400">
+                                                {/* Estimation MB reverse du Mifflin simplifiée ou recalculée */}
+                                                {userData && Math.round(calories / userData.activity)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </BentoCard>
+                            )}
 
-                    {/* Module Macros */}
-                    {visibleWidgets.macros && (
-                        <BentoCard title="Cibles Macros" icon={<Target size={18} />}>
-                            <div className="space-y-4 mt-2">
-                                <MacroBar label="Prot." percentage="75%" color="bg-blue-500" />
-                                <MacroBar label="Glu." percentage="60%" color="bg-cyan-500" />
-                                <MacroBar label="Lip." percentage="85%" color="bg-indigo-500" />
-                            </div>
-                        </BentoCard>
-                    )}
+                            {/* Module Eau */}
+                            {visibleWidgets.eau && (
+                                <BentoCard title="Hydratation" icon={<Droplets size={18} />}>
+                                    <div className="text-4xl font-black italic tracking-tighter flex items-baseline gap-1">
+                                        {waterTarget} <span className="text-[10px] uppercase text-slate-500 not-italic">Litres</span>
+                                    </div>
+                                    <p className="text-[10px] uppercase text-slate-500 font-bold mt-1 tracking-wider">Cible journalière</p>
+                                    <div className="h-1.5 w-full bg-slate-950 rounded-full mt-4 overflow-hidden"><div className="h-full w-[60%] bg-blue-500" /></div>
+                                </BentoCard>
+                            )}
 
-                    {/* Module Activité */}
-                    {visibleWidgets.activite && (
-                        <BentoCard title="Activité" icon={<Footprints size={18} />}>
-                            <div className="text-4xl font-black italic tracking-tighter">8,432 <span className="text-[10px] uppercase text-slate-500">pas</span></div>
-                            <div className="h-1.5 w-full bg-slate-950 rounded-full mt-4 overflow-hidden"><div className="h-full w-[84%] bg-orange-400" /></div>
-                        </BentoCard>
-                    )}
+                            {/* Module Graphique (Poids) */}
+                            {visibleWidgets.graphique && (
+                                <BentoCard colSpan={2} title="Trajectoire (Démo)" icon={<TrendingDown size={18} />}>
+                                    <div className="h-40 w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={weightData}>
+                                                <defs><linearGradient id="wG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#22d3ee" stopOpacity={0.2} /><stop offset="95%" stopColor="#22d3ee" stopOpacity={0} /></linearGradient></defs>
+                                                <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} hide />
+                                                <Area type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={3} fill="url(#wG)" />
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </BentoCard>
+                            )}
 
-                    {/* Module Eau */}
-                    {visibleWidgets.eau && (
-                        <BentoCard title="Hydratation" icon={<Droplets size={18} />}>
-                            <div className="text-4xl font-black italic tracking-tighter">1.5 <span className="text-[10px] uppercase text-slate-500">Litres</span></div>
-                            <div className="h-1.5 w-full bg-slate-950 rounded-full mt-4 overflow-hidden"><div className="h-full w-[60%] bg-blue-500" /></div>
-                        </BentoCard>
-                    )}
-
-                </div>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* --- MODALE DE SYNCHRONISATION AVEC LOADER --- */}
@@ -254,11 +310,12 @@ function BentoCard({ children, colSpan, title, icon }: any) {
     );
 }
 
-function MacroBar({ label, percentage, color }: any) {
+function MacroBar({ label, percentage, value, color }: any) {
     return (
         <div className="space-y-1.5">
-            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-500">
-                <span>{label}</span><span>{percentage}</span>
+            <div className="flex justify-between items-end">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{label}</span>
+                <div className="text-xs font-black italic text-white">{value} <span className="text-[9px] text-slate-600 font-bold not-italic ml-1">{percentage}</span></div>
             </div>
             <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
                 <motion.div initial={{ width: 0 }} animate={{ width: percentage }} transition={{ duration: 1.5 }} className={`h-full ${color}`} />
